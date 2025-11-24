@@ -109,6 +109,26 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 ```
+---
+
+## 📂 Folder yang Tidak Terupload ke GitHub
+
+Beberapa folder dan file **tidak ikut ter‑push ke GitHub** karena hanya digunakan secara lokal oleh masing‑masing developer:
+
+- **`fer-env/`** → virtual environment khusus untuk library FER.  
+- **`mediapipe-env/`** → virtual environment khusus untuk MediaPipe.  
+- **`venv/` / `env/`** → environment Python umum.  
+- **`__pycache__/`** → cache Python otomatis.  
+- **`node_modules/`** → dependency Node.js/Electron.  
+- File sementara seperti `*.pyc`, `*.pyo`, `*.pyd`, dan log (`*.log`).  
+
+👉 Semua dependency bisa di‑install ulang menggunakan:
+- `requirements.txt` untuk Python.  
+- `package.json` untuk Node.js/Electron.  
+
+Dengan begitu, repo tetap ringan dan tidak berisi file besar (DLL, `.pyd`, `.exe`) yang tidak diperlukan di GitHub.
+
+---
 
 ---
 
@@ -129,7 +149,3 @@ yarn-error.log*
 ```
 
 ---
-
-Dengan README ini, temanmu bisa langsung paham cara setup environment, menjalankan script, dan melanjutkan pengembangan.  
-
-👉 Mau saya tambahkan juga **contoh `requirements.txt`** agar mereka tinggal `pip install -r requirements.txt` tanpa ribet?
