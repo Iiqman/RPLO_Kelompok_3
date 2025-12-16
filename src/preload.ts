@@ -1,5 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('api', {
-  detectFace: () => ipcRenderer.invoke('detect-face'),
+  detectFace: (cameraIndex: number) => ipcRenderer.invoke('detect-face', cameraIndex),
+  drawEmoji: () => ipcRenderer.invoke("draw-emoji"),
+  runQuiz: () => ipcRenderer.invoke("run-quiz"),
 });
+
+  

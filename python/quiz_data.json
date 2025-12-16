@@ -1,0 +1,145 @@
+{
+  "Present": {
+    "easy": [
+      {
+        "question": "Dia makan nasi setiap hari",
+        "words": [
+          "eats",
+          "She",
+          "every",
+          "rice",
+          "day"
+        ],
+        "correct_answer": [
+          "She",
+          "eats",
+          "rice",
+          "every",
+          "day"
+        ],
+        "timer": 30
+      },
+      {
+        "question": "Mereka bermain sepak bola",
+        "words": [
+          "play",
+          "football",
+          "They"
+        ],
+        "correct_answer": [
+          "They",
+          "play",
+          "football"
+        ],
+        "timer": 25
+      }
+    ],
+    "medium": [
+      {
+        "question": "Saya tidak suka kopi di pagi hari",
+        "words": [
+          "do",
+          "not",
+          "I",
+          "like",
+          "in",
+          "coffee",
+          "morning",
+          "the"
+        ],
+        "correct_answer": [
+          "I",
+          "do",
+          "not",
+          "like",
+          "coffee",
+          "in",
+          "the",
+          "morning"
+        ],
+        "timer": 40
+      }
+    ],
+    "hard": [
+      {
+        "question": "Apakah kamu selalu membaca buku sebelum tidur?",
+        "words": [
+          "you",
+          "Do",
+          "always",
+          "read",
+          "books",
+          "before",
+          "sleeping",
+          "?"
+        ],
+        "correct_answer": [
+          "Do",
+          "you",
+          "always",
+          "read",
+          "books",
+          "before",
+          "sleeping",
+          "?"
+        ],
+        "timer": 50
+      }
+    ]
+  },
+  "Past": {
+    "easy": [
+      {
+        "question": "Dia pergi ke sekolah kemarin",
+        "words": [
+          "went",
+          "She",
+          "to",
+          "school",
+          "yesterday"
+        ],
+        "correct_answer": [
+          "She",
+          "went",
+          "to",
+          "school",
+          "yesterday"
+        ],
+        "timer": 30
+      }
+    ],
+    "medium": [],
+    "hard": []
+  },
+  "Future": {
+    "easy": [
+      {
+        "question": "Saya akan mengunjungi nenek besok",
+        "words": [
+          "will",
+          "I",
+          "visit",
+          "grandmother",
+          "tomorrow",
+          "my"
+        ],
+        "correct_answer": [
+          "I",
+          "will",
+          "visit",
+          "my",
+          "grandmother",
+          "tomorrow"
+        ],
+        "timer": 35
+      }
+    ],
+    "medium": [],
+    "hard": []
+  },
+  "Past Future": {
+    "easy": [],
+    "medium": [],
+    "hard": []
+  }
+}
