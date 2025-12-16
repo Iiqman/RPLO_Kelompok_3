@@ -32,6 +32,22 @@
           "football"
         ],
         "timer": 25
+      },
+      {
+        "question": "Saya sedang pergi ke kota",
+        "words": [
+          "I'm",
+          "going",
+          "to",
+          "city"
+        ],
+        "correct_answer": [
+          "I'm",
+          "going",
+          "to",
+          "city"
+        ],
+        "timer": 30
       }
     ],
     "medium": [

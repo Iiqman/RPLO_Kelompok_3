@@ -109,7 +109,17 @@ class QuizGame:
             if not json_path.exists():
                 print("[!] quiz_data.json not found!")
                 print("[!] Please create quiz_data.json file")
-                self.quiz_data = {}
+                # Create empty structure
+                self.quiz_data = {
+                    "Present": {"easy": [], "medium": [], "hard": []},
+                    "Past": {"easy": [], "medium": [], "hard": []},
+                    "Future": {"easy": [], "medium": [], "hard": []},
+                    "Past Future": {"easy": [], "medium": [], "hard": []}
+                }
+                # Save it
+                with open(json_path, 'w', encoding='utf-8') as f:
+                    json.dump(self.quiz_data, f, indent=2, ensure_ascii=False)
+                print("[OK] Created empty quiz_data.json")
                 return
             
             with open(json_path, 'r', encoding='utf-8') as f:
@@ -122,45 +132,43 @@ class QuizGame:
             self.quiz_data = {}
     
     def open_quiz_editor(self):
-        """Open quiz_data.json in default text editor"""
+        """Open quiz editor GUI"""
+        import subprocess
+        import sys
+        
         try:
-            json_path = Path(__file__).parent / "quiz_data.json"
+            editor_path = Path(__file__).parent / "quiz_editor.py"
             
-            if not json_path.exists():
-                print("[!] Creating quiz_data.json...")
-                # Create empty structure
-                empty_data = {
-                    "Present": {"easy": [], "medium": [], "hard": []},
-                    "Past": {"easy": [], "medium": [], "hard": []},
-                    "Future": {"easy": [], "medium": [], "hard": []},
-                    "Past Future": {"easy": [], "medium": [], "hard": []}
-                }
-                with open(json_path, 'w', encoding='utf-8') as f:
-                    json.dump(empty_data, f, indent=2, ensure_ascii=False)
-                print(f"[OK] Created quiz_data.json")
+            if not editor_path.exists():
+                print("[!] Editor not found: quiz_editor.py")
+                print("[!] Please make sure quiz_editor.py exists in the same folder")
+                return
             
-            # Open with default editor
-            if os.name == 'nt':  # Windows
-                os.startfile(str(json_path))
-            elif os.name == 'posix':  # macOS/Linux
-                os.system(f'open "{json_path}"' if os.uname().sysname == 'Darwin' else f'xdg-open "{json_path}"')
-            
-            print(f"[OK] Opening quiz_data.json in editor...")
-            print(f"[*] After editing, save and reload the quiz!")
-            
+            # Run editor as separate process with "sentence" mode
+            subprocess.Popen([sys.executable, str(editor_path), "sentence"])
+            print("[OK] Opening Sentence Quiz Editor...")
+            print("[*] Edit your questions in the editor window")
+            print("[*] Press 'r' in this window to reload after editing")
+        
         except Exception as e:
             print(f"[X] Error opening editor: {e}")
+            import traceback
+            traceback.print_exc()
     
     def setup_menu(self):
         """Setup main menu buttons"""
         self.state = "MENU"
         self.buttons = []
         
+        # Reset score when going back to menu
+        self.score = 0
+        self.total_questions = 0
+        
         categories = ["Present", "Past", "Future", "Past Future"]
         button_width = 200
         button_height = 80
         spacing = 20
-        start_y = 200
+        start_y = 180
         
         # Category buttons - centered
         for i, category in enumerate(categories):
@@ -171,7 +179,7 @@ class QuizGame:
         # Edit Quiz button - bottom center
         edit_btn_width = 250
         edit_x = 640 - edit_btn_width // 2
-        self.buttons.append(Button(edit_x, 600, edit_btn_width, 60, "EDIT QUIZ", "edit_quiz"))
+        self.buttons.append(Button(edit_x, 620, edit_btn_width, 60, "EDIT QUESTIONS", "edit_quiz"))
     
     def setup_difficulty(self):
         """Setup difficulty selection"""
@@ -215,8 +223,12 @@ class QuizGame:
         
         # Setup question
         self.current_question = question_data
+        
+        # SHUFFLE WORDS - INI YANG PENTING!
         self.available_words = question_data["words"].copy()
-        random.shuffle(self.available_words)
+        random.shuffle(self.available_words)  # Acak posisi kata
+        
+        print(f"[*] Words shuffled: {self.available_words}")
         
         # Timer
         self.time_limit = question_data.get("timer", 30)
@@ -378,6 +390,10 @@ class QuizGame:
         cv2.putText(frame, f"{self.current_category} - {self.current_difficulty.title()}", 
                     (50, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (150, 150, 150), 1, cv2.LINE_AA)
         
+        # Score
+        cv2.putText(frame, f"Score: {self.score}", (50, 130), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 255, 100), 2, cv2.LINE_AA)
+        
         # Answer area label
         cv2.putText(frame, "Your Answer:", (50, 200), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1, cv2.LINE_AA)
@@ -467,8 +483,12 @@ class QuizGame:
         cv2.putText(frame, correct_answer, 
                     (100, 470), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (100, 255, 100), 2, cv2.LINE_AA)
         
+        # Current Score
+        cv2.putText(frame, f"Score: {self.score}/{self.total_questions}", 
+                    (100, 540), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (100, 255, 255), 2, cv2.LINE_AA)
+        
         # Buttons - CENTERED
-        button_y = 570
+        button_y = 600
         button_width = 200
         button_height = 70
         button_spacing = 30
@@ -487,12 +507,13 @@ class QuizGame:
             
             if btn.hovered and self.is_pinching and not self.last_pinch:
                 if btn.id == "next":
-                    self.start_quiz()
+                    self.start_quiz()  # Kata akan di-shuffle lagi!
                 elif btn.id == "menu":
                     self.setup_menu()
     
     def finish_quiz(self):
         """Finish current quiz"""
+        self.total_questions += 1
         self.state = "RESULT"
     
     def update(self, frame):
@@ -545,7 +566,7 @@ class QuizGame:
                 self.setup_menu()
             else:
                 self.current_difficulty = btn.id
-                self.start_quiz()
+                self.start_quiz()  # Kata akan di-shuffle!
         
         elif self.state == "QUIZ":
             if btn.id.startswith("word_"):
@@ -591,6 +612,8 @@ def main():
     game.setup_menu()
     print("[OK] Quiz game initialized!")
     print("\n[*] Starting main loop...")
+    print("[*] Press 'r' to reload quiz data after editing")
+    print("[*] Words will be SHUFFLED every time you start a new quiz!")
     print("=" * 70 + "\n")
     
     try:
@@ -645,7 +668,7 @@ def main():
                 game.update(frame)
                 
                 # Quit instruction
-                cv2.putText(frame, "Press 'q' to Quit", (10, 30), 
+                cv2.putText(frame, "Press 'q' to Quit | 'r' to Reload", (10, 30), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
 
                 # Show frame

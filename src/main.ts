@@ -90,3 +90,13 @@ ipcMain.handle("run-quiz", async () => {
   const result = await runPython("python/quiz_game.py");
   return result;
 });
+
+ipcMain.handle("run-guess-game", async () => {
+  const result = await runPython("python/guess_game.py");
+  return result;
+});
+
+ipcMain.handle("run-quiz-editor", async () => {
+  const result = await runPython("python/quiz_editor.py");
+  return result;
+});
