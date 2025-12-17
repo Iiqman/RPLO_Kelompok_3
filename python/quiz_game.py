@@ -24,7 +24,7 @@ class QuizQuestion:
     difficulty: str
 
 class Button:
-    """Class untuk button/word card yang bisa diklik"""
+    """Class untuk button/word card yang bisa diklik - MODERN STYLE"""
     def __init__(self, x, y, width, height, text, id=None):
         self.x = x
         self.y = y
@@ -41,29 +41,45 @@ class Button:
                 self.y <= y <= self.y + self.height)
     
     def draw(self, frame, color=None):
-        """Draw button on frame"""
+        """Draw button with modern style"""
         if color is None:
             if self.selected:
-                color = (100, 200, 100)  # Green when selected
+                color = (80, 180, 80)  # Green when selected
             elif self.hovered:
                 color = (100, 150, 255)  # Light blue when hovered
             else:
-                color = (80, 80, 80)  # Gray default
+                color = (60, 60, 60)  # Dark gray default
         
-        # Draw button background
+        # Shadow effect
+        shadow_offset = 4
+        cv2.rectangle(frame, 
+                     (self.x + shadow_offset, self.y + shadow_offset), 
+                     (self.x + self.width + shadow_offset, self.y + self.height + shadow_offset), 
+                     (20, 20, 20), -1)
+        
+        # Draw button background with rounded effect
         cv2.rectangle(frame, (self.x, self.y), 
                       (self.x + self.width, self.y + self.height), 
                       color, -1)
         
-        # Draw border
-        border_color = (255, 255, 255) if self.hovered else (120, 120, 120)
+        # Draw border - modern accent
+        if self.selected:
+            border_color = (120, 255, 120)
+            thickness = 3
+        elif self.hovered:
+            border_color = (150, 200, 255)
+            thickness = 3
+        else:
+            border_color = (100, 100, 100)
+            thickness = 2
+            
         cv2.rectangle(frame, (self.x, self.y), 
                       (self.x + self.width, self.y + self.height), 
-                      border_color, 2)
+                      border_color, thickness)
         
-        # Draw text centered
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.7
+        # Draw text centered - modern font
+        font = cv2.FONT_HERSHEY_DUPLEX
+        font_scale = 0.8
         thickness = 2
         text_size = cv2.getTextSize(self.text, font, font_scale, thickness)[0]
         text_x = self.x + (self.width - text_size[0]) // 2
@@ -97,6 +113,9 @@ class QuizGame:
         self.is_pinching = False
         self.last_pinch = False
         self.pinch_cooldown = 0
+        
+        # Modern font
+        self.font = cv2.FONT_HERSHEY_DUPLEX
         
         # Load quiz data
         self.load_quiz_data()
@@ -155,31 +174,35 @@ class QuizGame:
             import traceback
             traceback.print_exc()
     
+    def draw_text_shadow(self, frame, text, pos, font, scale, color, thickness):
+        """Draw text with shadow for better visibility"""
+        x, y = pos
+        # Shadow
+        cv2.putText(frame, text, (x+3, y+3), font, scale, (0, 0, 0), thickness+1, cv2.LINE_AA)
+        # Main text
+        cv2.putText(frame, text, (x, y), font, scale, color, thickness, cv2.LINE_AA)
+    
     def setup_menu(self):
         """Setup main menu buttons"""
         self.state = "MENU"
         self.buttons = []
         
-        # Reset score when going back to menu
-        self.score = 0
-        self.total_questions = 0
-        
         categories = ["Present", "Past", "Future", "Past Future"]
-        button_width = 200
-        button_height = 80
-        spacing = 20
-        start_y = 180
+        button_width = 280
+        button_height = 90
+        spacing = 25
+        start_y = 300
         
         # Category buttons - centered
         for i, category in enumerate(categories):
-            x = 640 - button_width // 2  # Center
+            x = 960 - button_width // 2  # Center for 1920
             y = start_y + i * (button_height + spacing)
             self.buttons.append(Button(x, y, button_width, button_height, category, category))
         
         # Edit Quiz button - bottom center
-        edit_btn_width = 250
-        edit_x = 640 - edit_btn_width // 2
-        self.buttons.append(Button(edit_x, 620, edit_btn_width, 60, "EDIT QUESTIONS", "edit_quiz"))
+        edit_btn_width = 320
+        edit_x = 960 - edit_btn_width // 2
+        self.buttons.append(Button(edit_x, 880, edit_btn_width, 70, "EDIT QUESTIONS", "edit_quiz"))
     
     def setup_difficulty(self):
         """Setup difficulty selection"""
@@ -188,11 +211,11 @@ class QuizGame:
         
         difficulties = ["Easy", "Medium", "Hard"]
         
-        button_width = 180
-        button_height = 80
-        spacing = 30
-        start_x = 640 - (button_width * 3 + spacing * 2) // 2
-        y = 300
+        button_width = 250
+        button_height = 100
+        spacing = 40
+        start_x = 960 - (button_width * 3 + spacing * 2) // 2
+        y = 450
         
         for i, diff in enumerate(difficulties):
             x = start_x + i * (button_width + spacing)
@@ -200,8 +223,8 @@ class QuizGame:
             self.buttons.append(btn)
         
         # Back button - center bottom
-        back_x = 640 - 60
-        self.buttons.append(Button(back_x, 600, 120, 50, "Back", "back"))
+        back_x = 960 - 80
+        self.buttons.append(Button(back_x, 880, 160, 60, "Back", "back"))
     
     def start_quiz(self):
         """Start quiz with selected category and difficulty"""
@@ -223,12 +246,8 @@ class QuizGame:
         
         # Setup question
         self.current_question = question_data
-        
-        # SHUFFLE WORDS - INI YANG PENTING!
         self.available_words = question_data["words"].copy()
-        random.shuffle(self.available_words)  # Acak posisi kata
-        
-        print(f"[*] Words shuffled: {self.available_words}")
+        random.shuffle(self.available_words)
         
         # Timer
         self.time_limit = question_data.get("timer", 30)
@@ -241,18 +260,18 @@ class QuizGame:
         self.create_answer_area()
     
     def create_word_buttons(self):
-        """Create buttons for available words - CENTERED"""
-        button_width = 120
-        button_height = 60
-        spacing_x = 15
-        spacing_y = 15
-        words_per_row = 6
+        """Create buttons for available words - CENTERED, RAISED POSITION"""
+        button_width = 140
+        button_height = 70
+        spacing_x = 18
+        spacing_y = 18
+        words_per_row = 8
         
         # Calculate rows needed
         num_words = len(self.available_words)
         num_rows = (num_words + words_per_row - 1) // words_per_row
         
-        start_y = 500
+        start_y = 620  # Raised from 720
         
         for i, word in enumerate(self.available_words):
             row = i // words_per_row
@@ -263,7 +282,7 @@ class QuizGame:
             
             # Calculate starting x for centering this row
             total_width = words_in_row * button_width + (words_in_row - 1) * spacing_x
-            start_x = (1280 - total_width) // 2
+            start_x = (1920 - total_width) // 2
             
             x = start_x + col * (button_width + spacing_x)
             y = start_y + row * (button_height + spacing_y)
@@ -273,24 +292,23 @@ class QuizGame:
     
     def create_answer_area(self):
         """Create answer area for selected words"""
-        # Answer area is dynamic, will be created as words are selected
         pass
     
     def update_answer_display(self):
         """Update answer buttons based on current sequence"""
         self.answer_buttons = []
         
-        button_width = 120
-        button_height = 60
-        spacing = 10
-        start_y = 250
+        button_width = 140
+        button_height = 70
+        spacing = 15
+        start_y = 320  # Raised position
         
         if not self.answer_sequence:
             return
         
         # Calculate total width and center
         total_width = len(self.answer_sequence) * button_width + (len(self.answer_sequence) - 1) * spacing
-        start_x = (1280 - total_width) // 2
+        start_x = (1920 - total_width) // 2
         
         for i, word in enumerate(self.answer_sequence):
             x = start_x + i * (button_width + spacing)
@@ -308,18 +326,18 @@ class QuizGame:
         return False
     
     def draw_menu(self, frame):
-        """Draw main menu"""
+        """Draw main menu - MODERN STYLE"""
         h, w = frame.shape[:2]
         
-        # Title
+        # Title - modern
         title = "ENGLISH SENTENCE QUIZ"
-        cv2.putText(frame, title, (640 - 250, 100), 
-                    cv2.FONT_HERSHEY_COMPLEX, 1.2, (0, 255, 100), 3, cv2.LINE_AA)
+        self.draw_text_shadow(frame, title, (960 - 380, 150), 
+                             self.font, 1.8, (100, 200, 255), 3)
         
         # Subtitle
         subtitle = "Select Tense Category"
-        cv2.putText(frame, subtitle, (640 - 150, 150), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), 2, cv2.LINE_AA)
+        self.draw_text_shadow(frame, subtitle, (960 - 200, 230), 
+                             self.font, 1.0, (200, 200, 200), 2)
         
         # Draw buttons
         for btn in self.buttons:
@@ -330,35 +348,35 @@ class QuizGame:
                 btn.draw(frame)
         
         # Instructions
-        cv2.putText(frame, "Point and PINCH fingers to select", 
-                    (50, h - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+        self.draw_text_shadow(frame, "Point and PINCH fingers to select", 
+                             (50, h - 40), self.font, 0.8, (255, 255, 255), 2)
     
     def draw_difficulty(self, frame):
-        """Draw difficulty selection"""
+        """Draw difficulty selection - MODERN STYLE"""
         h, w = frame.shape[:2]
         
         # Title
         title = f"Category: {self.current_category}"
-        cv2.putText(frame, title, (640 - 200, 100), 
-                    cv2.FONT_HERSHEY_COMPLEX, 1.0, (0, 255, 100), 2, cv2.LINE_AA)
+        self.draw_text_shadow(frame, title, (960 - 280, 150), 
+                             self.font, 1.5, (100, 255, 100), 3)
         
         # Subtitle
         subtitle = "Select Difficulty"
-        cv2.putText(frame, subtitle, (640 - 120, 200), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), 2, cv2.LINE_AA)
+        self.draw_text_shadow(frame, subtitle, (960 - 180, 280), 
+                             self.font, 1.1, (200, 200, 200), 2)
         
         # Draw buttons
         for btn in self.buttons:
             if btn.id == "easy":
-                btn.draw(frame, (100, 200, 100) if btn.hovered else (80, 150, 80))
+                btn.draw(frame, (100, 200, 100) if btn.hovered else (70, 150, 70))
             elif btn.id == "medium":
-                btn.draw(frame, (255, 180, 50) if btn.hovered else (200, 140, 40))
+                btn.draw(frame, (255, 200, 80) if btn.hovered else (200, 150, 60))
             elif btn.id == "hard":
                 btn.draw(frame, (255, 120, 120) if btn.hovered else (200, 80, 80))
             else:
                 btn.draw(frame)
         
-        # Info text
+        # Info text - modern layout
         info_lines = [
             "Easy: 3-5 words, 25-30 seconds",
             "Medium: 6-8 words, 35-40 seconds",
@@ -366,65 +384,89 @@ class QuizGame:
         ]
         
         for i, line in enumerate(info_lines):
-            cv2.putText(frame, line, (400, 450 + i * 30), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (180, 180, 180), 1, cv2.LINE_AA)
+            self.draw_text_shadow(frame, line, (960 - 200, 680 + i * 40), 
+                                 self.font, 0.7, (180, 180, 180), 1)
     
     def draw_quiz(self, frame):
-        """Draw quiz interface"""
+        """Draw quiz interface - MODERN & MINIMALIST"""
         h, w = frame.shape[:2]
         
-        # Timer
+        # Timer - top right, modern
         elapsed = time.time() - self.start_time
         remaining = max(0, self.time_limit - int(elapsed))
         
-        timer_color = (0, 255, 0) if remaining > 10 else (0, 100, 255) if remaining > 5 else (0, 0, 255)
-        cv2.putText(frame, f"Time: {remaining}s", (1100, 50), 
-                    cv2.FONT_HERSHEY_COMPLEX, 1.0, timer_color, 2, cv2.LINE_AA)
+        timer_color = (100, 255, 100) if remaining > 10 else (255, 200, 100) if remaining > 5 else (255, 100, 100)
         
-        # Question
+        # Timer background box
+        timer_text = f"{remaining}s"
+        timer_size = cv2.getTextSize(timer_text, self.font, 1.5, 3)[0]
+        timer_box_x = 1750
+        timer_box_y = 40
+        timer_box_w = 140
+        timer_box_h = 80
+        
+        # Draw timer box with shadow
+        cv2.rectangle(frame, (timer_box_x + 4, timer_box_y + 4), 
+                     (timer_box_x + timer_box_w + 4, timer_box_y + timer_box_h + 4), 
+                     (20, 20, 20), -1)
+        cv2.rectangle(frame, (timer_box_x, timer_box_y), 
+                     (timer_box_x + timer_box_w, timer_box_y + timer_box_h), 
+                     (50, 50, 50), -1)
+        cv2.rectangle(frame, (timer_box_x, timer_box_y), 
+                     (timer_box_x + timer_box_w, timer_box_y + timer_box_h), 
+                     timer_color, 3)
+        
+        self.draw_text_shadow(frame, timer_text, 
+                             (timer_box_x + (timer_box_w - timer_size[0]) // 2, 
+                              timer_box_y + (timer_box_h + timer_size[1]) // 2), 
+                             self.font, 1.5, timer_color, 3)
+        
+        # Question - top, modern
         question_text = self.current_question["question"]
-        cv2.putText(frame, f"Question: {question_text}", (50, 50), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
+        self.draw_text_shadow(frame, f"Q: {question_text}", (50, 80), 
+                             self.font, 1.0, (255, 255, 255), 2)
         
-        # Category and difficulty
-        cv2.putText(frame, f"{self.current_category} - {self.current_difficulty.title()}", 
-                    (50, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (150, 150, 150), 1, cv2.LINE_AA)
-        
-        # Score
-        cv2.putText(frame, f"Score: {self.score}", (50, 130), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 255, 100), 2, cv2.LINE_AA)
+        # Category and difficulty - subtle
+        self.draw_text_shadow(frame, f"{self.current_category} - {self.current_difficulty.title()}", 
+                             (50, 130), self.font, 0.7, (150, 150, 150), 1)
         
         # Answer area label
-        cv2.putText(frame, "Your Answer:", (50, 200), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1, cv2.LINE_AA)
+        self.draw_text_shadow(frame, "Your Answer:", (50, 250), 
+                             self.font, 0.9, (100, 200, 255), 2)
         
         # Draw answer buttons
         for btn in self.answer_buttons:
             btn.draw(frame)
         
+        # If no answer yet, show placeholder
+        if not self.answer_sequence:
+            placeholder = "Click words below to build sentence..."
+            self.draw_text_shadow(frame, placeholder, (960 - 280, 360), 
+                                 self.font, 0.7, (120, 120, 120), 1)
+        
         # Available words label
-        cv2.putText(frame, "Available Words (click to add):", (50, 460), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1, cv2.LINE_AA)
+        self.draw_text_shadow(frame, "Available Words (click to add):", (50, 560), 
+                             self.font, 0.9, (200, 200, 200), 2)
         
         # Draw word buttons
         for btn in self.buttons:
             btn.draw(frame)
         
-        # Submit and Clear buttons - CENTERED at bottom
-        button_y = 660
-        button_height = 50
-        button_spacing = 30
+        # Submit and Clear buttons - RAISED POSITION, centered
+        button_y = 880  # Raised from 980
+        button_height = 60
+        button_spacing = 35
         
         # Clear button (left)
-        clear_width = 130
-        submit_width = 150
+        clear_width = 160
+        submit_width = 180
         total_buttons_width = clear_width + button_spacing + submit_width
-        start_x = (1280 - total_buttons_width) // 2
+        start_x = (1920 - total_buttons_width) // 2
         
         clear_btn = Button(start_x, button_y, clear_width, button_height, "CLEAR", "clear")
         clear_btn.hovered = (self.finger_pos and 
                             clear_btn.contains_point(self.finger_pos[0], self.finger_pos[1]))
-        clear_btn.draw(frame, (255, 100, 100) if clear_btn.hovered else (150, 80, 80))
+        clear_btn.draw(frame, (255, 120, 120) if clear_btn.hovered else (180, 80, 80))
         
         if clear_btn.hovered and self.is_pinching and not self.last_pinch:
             self.answer_sequence = []
@@ -439,7 +481,7 @@ class QuizGame:
                               submit_width, button_height, "SUBMIT", "submit")
             submit_btn.hovered = (self.finger_pos and 
                                  submit_btn.contains_point(self.finger_pos[0], self.finger_pos[1]))
-            submit_btn.draw(frame, (100, 200, 100) if submit_btn.hovered else (80, 150, 80))
+            submit_btn.draw(frame, (120, 255, 120) if submit_btn.hovered else (80, 180, 80))
             
             # Check if submit clicked
             if submit_btn.hovered and self.is_pinching and not self.last_pinch:
@@ -449,52 +491,48 @@ class QuizGame:
         if remaining <= 0:
             self.finish_quiz()
         
-        # Instructions
-        cv2.putText(frame, "Pinch to select words | Build sentence | Click answer to remove | SUBMIT when done", 
-                    (50, h - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+        # Instructions - bottom
+        self.draw_text_shadow(frame, "Pinch to select | Click answer to remove | SUBMIT when done", 
+                             (50, h - 40), self.font, 0.7, (255, 255, 255), 1)
     
     def draw_result(self, frame):
-        """Draw result screen"""
+        """Draw result screen - MODERN"""
         h, w = frame.shape[:2]
         
         # Result
         is_correct = self.check_answer()
         result_text = "CORRECT!" if is_correct else "WRONG!"
-        result_color = (100, 255, 100) if is_correct else (100, 100, 255)
+        result_color = (120, 255, 120) if is_correct else (255, 120, 120)
         
-        cv2.putText(frame, result_text, (640 - 100, 150), 
-                    cv2.FONT_HERSHEY_COMPLEX, 1.5, result_color, 3, cv2.LINE_AA)
+        self.draw_text_shadow(frame, result_text, (960 - 180, 200), 
+                             self.font, 2.5, result_color, 4)
         
         # Question
-        cv2.putText(frame, f"Question: {self.current_question['question']}", 
-                    (100, 250), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
+        self.draw_text_shadow(frame, f"Q: {self.current_question['question']}", 
+                             (150, 350), self.font, 0.9, (255, 255, 255), 2)
         
         # Your answer
         your_answer = " ".join(self.answer_sequence)
-        cv2.putText(frame, f"Your Answer:", (100, 320), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1, cv2.LINE_AA)
-        cv2.putText(frame, your_answer if your_answer else "(empty)", 
-                    (100, 360), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 100), 2, cv2.LINE_AA)
+        self.draw_text_shadow(frame, f"Your Answer:", (150, 470), 
+                             self.font, 0.8, (200, 200, 200), 1)
+        self.draw_text_shadow(frame, your_answer if your_answer else "(empty)", 
+                             (150, 530), self.font, 1.1, (255, 255, 150), 2)
         
         # Correct answer
         correct_answer = " ".join(self.current_question["correct_answer"])
-        cv2.putText(frame, f"Correct Answer:", (100, 430), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1, cv2.LINE_AA)
-        cv2.putText(frame, correct_answer, 
-                    (100, 470), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (100, 255, 100), 2, cv2.LINE_AA)
-        
-        # Current Score
-        cv2.putText(frame, f"Score: {self.score}/{self.total_questions}", 
-                    (100, 540), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (100, 255, 255), 2, cv2.LINE_AA)
+        self.draw_text_shadow(frame, f"Correct Answer:", (150, 650), 
+                             self.font, 0.8, (200, 200, 200), 1)
+        self.draw_text_shadow(frame, correct_answer, 
+                             (150, 710), self.font, 1.1, (120, 255, 120), 2)
         
         # Buttons - CENTERED
-        button_y = 600
-        button_width = 200
-        button_height = 70
-        button_spacing = 30
+        button_y = 850
+        button_width = 220
+        button_height = 80
+        button_spacing = 40
         
         total_width = button_width * 2 + button_spacing
-        start_x = (1280 - total_width) // 2
+        start_x = (1920 - total_width) // 2
         
         next_btn = Button(start_x, button_y, button_width, button_height, "NEXT", "next")
         menu_btn = Button(start_x + button_width + button_spacing, button_y, 
@@ -507,13 +545,12 @@ class QuizGame:
             
             if btn.hovered and self.is_pinching and not self.last_pinch:
                 if btn.id == "next":
-                    self.start_quiz()  # Kata akan di-shuffle lagi!
+                    self.start_quiz()
                 elif btn.id == "menu":
                     self.setup_menu()
     
     def finish_quiz(self):
         """Finish current quiz"""
-        self.total_questions += 1
         self.state = "RESULT"
     
     def update(self, frame):
@@ -545,12 +582,17 @@ class QuizGame:
         elif self.state == "RESULT":
             self.draw_result(frame)
         
-        # Draw finger pointer
+        # Draw finger pointer - modern style
         if self.finger_pos:
             x, y = self.finger_pos
-            color = (0, 255, 255) if self.is_pinching else (255, 100, 100)
-            cv2.circle(frame, (x, y), 12 if self.is_pinching else 8, color, -1, cv2.LINE_AA)
-            cv2.circle(frame, (x, y), 16 if self.is_pinching else 12, color, 2, cv2.LINE_AA)
+            if self.is_pinching:
+                # Pinching - smaller, bright
+                cv2.circle(frame, (x, y), 14, (100, 255, 255), -1, cv2.LINE_AA)
+                cv2.circle(frame, (x, y), 18, (150, 255, 255), 3, cv2.LINE_AA)
+            else:
+                # Pointing - larger, subtle
+                cv2.circle(frame, (x, y), 10, (255, 150, 150), -1, cv2.LINE_AA)
+                cv2.circle(frame, (x, y), 15, (255, 200, 200), 2, cv2.LINE_AA)
     
     def handle_button_click(self, btn):
         """Handle button click"""
@@ -566,7 +608,7 @@ class QuizGame:
                 self.setup_menu()
             else:
                 self.current_difficulty = btn.id
-                self.start_quiz()  # Kata akan di-shuffle!
+                self.start_quiz()
         
         elif self.state == "QUIZ":
             if btn.id.startswith("word_"):
@@ -588,7 +630,7 @@ class QuizGame:
 
 def main():
     print("\n" + "=" * 70)
-    print("[*] ENGLISH SENTENCE QUIZ - Starting Application")
+    print("[*] ENGLISH SENTENCE QUIZ - Starting Application (1920x1080)")
     print("=" * 70)
     
     # Test camera
@@ -601,9 +643,9 @@ def main():
     
     print("[OK] Camera accessed successfully!")
     
-    # Set camera properties
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    # Set camera properties to 1920x1080
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
     cap.set(cv2.CAP_PROP_FPS, 30)
     
     # Initialize game
@@ -611,9 +653,14 @@ def main():
     game = QuizGame()
     game.setup_menu()
     print("[OK] Quiz game initialized!")
+    
+    # Create window - windowed fullscreen
+    window_name = "English Sentence Quiz - 1920x1080"
+    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(window_name, 1920, 1080)
+    
     print("\n[*] Starting main loop...")
     print("[*] Press 'r' to reload quiz data after editing")
-    print("[*] Words will be SHUFFLED every time you start a new quiz!")
     print("=" * 70 + "\n")
     
     try:
@@ -657,22 +704,24 @@ def main():
                     distance = math.sqrt((index_x - thumb_x)**2 + (index_y - thumb_y)**2)
                     game.is_pinching = distance < 40
                     
-                    # Draw hand landmarks (minimal)
+                    # Draw hand landmarks (minimal, subtle)
                     mp_draw.draw_landmarks(
                         frame, hand_landmarks, mp_hands.HAND_CONNECTIONS,
-                        mp_draw.DrawingSpec(color=(0, 255, 100), thickness=1, circle_radius=1),
-                        mp_draw.DrawingSpec(color=(0, 180, 255), thickness=1)
+                        mp_draw.DrawingSpec(color=(100, 255, 150), thickness=2, circle_radius=2),
+                        mp_draw.DrawingSpec(color=(80, 200, 255), thickness=1)
                     )
                 
                 # Update game
                 game.update(frame)
                 
-                # Quit instruction
-                cv2.putText(frame, "Press 'q' to Quit | 'r' to Reload", (10, 30), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
+                # Quit instruction - modern
+                cv2.rectangle(frame, (8, 8), (350, 48), (30, 30, 30), -1)
+                cv2.rectangle(frame, (8, 8), (350, 48), (100, 100, 100), 2)
+                game.draw_text_shadow(frame, "Q: Quit | R: Reload", (20, 35), 
+                                     game.font, 0.6, (255, 100, 100), 1)
 
                 # Show frame
-                cv2.imshow("English Sentence Quiz", frame)
+                cv2.imshow(window_name, frame)
                 
                 # Keyboard
                 key = cv2.waitKey(1) & 0xFF

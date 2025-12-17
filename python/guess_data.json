@@ -1,0 +1,13 @@
+[
+  {
+    "blurred_image": "blurred_1765883695_31.png",
+    "original_image": "original_1765883700_31.png",
+    "options": [
+      "Goose",
+      "Eagle",
+      "Horse",
+      "Dog"
+    ],
+    "correct_answer": "Dog"
+  }
+]

@@ -7,10 +7,12 @@ from collections import deque
 from pathlib import Path
 import time
 import sys
+import json
 
 # Initialize MediaPipe
 mp_hands = mp.solutions.hands
 mp_draw = mp.solutions.drawing_utils
+
 
 # Emoji database
 EMOJI_PATTERNS = {
@@ -65,7 +67,7 @@ class EmojiDrawer:
         self.smoothed_points = deque(maxlen=5)
         self.canvas = None
         self.prev_point = None
-        self.brush_size = 12
+        self.brush_size = 15
         self.color = (0, 255, 100)
         
         # Detection parameters
@@ -81,6 +83,9 @@ class EmojiDrawer:
         # UI State
         self.show_hints = True
         
+        # Font untuk UI (lebih bagus)
+        self.font = cv2.FONT_HERSHEY_DUPLEX
+    
     def load_emoji_images(self):
         """Load emoji PNG images dari folder assets"""
         try:
@@ -253,79 +258,68 @@ class EmojiDrawer:
             
         except Exception as e:
             return False
-    
-    def is_heart_shape(self, contour, area, circularity, solidity, w, h):
-        """Specifically detect heart shape with stricter criteria"""
+
+    def is_heart_shape(self, contour):
+        """Detect heart shape berdasarkan convexity defects"""
         try:
-            x, y, bw, bh = cv2.boundingRect(contour)
-            
-            # Heart harus cukup besar (tidak terlalu kecil)
-            if area < 1500:
+            hull = cv2.convexHull(contour, returnPoints=False)
+            if hull is None or len(hull) < 3:
                 return False
             
-            # Heart characteristics
-            aspect_ratio = float(bw) / bh if bh > 0 else 0
-            
-            # Heart aspect ratio biasanya 0.85-1.15 (agak persegi tapi sedikit lebih tinggi)
-            if not (0.85 <= aspect_ratio <= 1.15):
+            defects = cv2.convexityDefects(contour, hull)
+            if defects is None:
                 return False
             
-            # Heart circularity: 0.50-0.68 (tidak terlalu bulat, tidak terlalu bersudut)
-            if not (0.50 <= circularity <= 0.68):
-                return False
+            count_defects = 0
+            for i in range(defects.shape[0]):
+                s, e, f, d = defects[i, 0]
+                if d > 1000:
+                    count_defects += 1
             
-            # Heart solidity: 0.78-0.87 (ada concave di atas tapi tidak terlalu dalam)
-            if not (0.78 <= solidity <= 0.87):
-                return False
+            if count_defects == 2:
+                print(f"   [HEART] Convexity defects count: {count_defects}")
+                return True
             
-            # Divide into top, middle, bottom thirds
-            third_h = bh // 3
-            top_y = y + third_h
-            bottom_y = y + 2 * third_h
+            return False
+        except:
+            return False
+
+    def is_star_shape(self, contour, corners, solidity, circularity):
+        """IMPROVED star detection dengan multiple criteria"""
+        try:
+            # Kriteria 1: Many corners + low solidity (classic star)
+            if 7 <= corners <= 20 and solidity < 0.75 and circularity < 0.65:
+                print(f"   [STAR] Type A: corners={corners}, solidity={solidity:.2f}")
+                return True
             
-            top_points = []
-            middle_points = []
-            bottom_points = []
+            # Kriteria 2: Moderate corners + very low solidity (rough star)
+            if 5 <= corners <= 12 and solidity < 0.60:
+                print(f"   [STAR] Type B: corners={corners}, solidity={solidity:.2f}")
+                return True
             
-            for point in contour:
-                px, py = point[0]
-                if py < top_y:
-                    top_points.append(px)
-                elif py < bottom_y:
-                    middle_points.append(px)
-                else:
-                    bottom_points.append(px)
+            # Kriteria 3: Check convexity defects (star has many points)
+            hull = cv2.convexHull(contour, returnPoints=False)
+            if hull is not None and len(hull) >= 3:
+                defects = cv2.convexityDefects(contour, hull)
+                if defects is not None:
+                    deep_defects = sum(1 for i in range(defects.shape[0]) if defects[i, 0, 3] > 800)
+                    if deep_defects >= 4 and corners >= 6:
+                        print(f"   [STAR] Type C: deep_defects={deep_defects}, corners={corners}")
+                        return True
             
-            if len(top_points) < 5 or len(middle_points) < 5 or len(bottom_points) < 3:
-                return False
-            
-            # Heart characteristics:
-            # - Top is wide (two bumps)
-            # - Middle is wide
-            # - Bottom is narrow (pointed)
-            top_width = max(top_points) - min(top_points)
-            middle_width = max(middle_points) - min(middle_points)
-            bottom_width = max(bottom_points) - min(bottom_points)
-            
-            # Top and middle should be similar width, bottom much narrower
-            if bottom_width > 0:
-                top_to_bottom = top_width / bottom_width
-                middle_to_bottom = middle_width / bottom_width
+            # Kriteria 4: Alternative - banyak corners dengan circularity rendah
+            if corners >= 8 and circularity < 0.70 and solidity < 0.80:
+                print(f"   [STAR] Type D: corners={corners}, circularity={circularity:.2f}")
+                return True
                 
-                # Heart: top dan middle lebar, bottom sempit
-                # Ratio harus > 2.0 (atas 2x lebih lebar dari bawah)
-                if top_to_bottom > 2.0 and middle_to_bottom > 1.8:
-                    print(f"   [HEART] Top/Bottom: {top_to_bottom:.2f}, Mid/Bottom: {middle_to_bottom:.2f}")
-                    print(f"   [HEART] Circularity: {circularity:.2f}, Solidity: {solidity:.2f}, AR: {aspect_ratio:.2f}")
-                    return True
-            
             return False
             
         except Exception as e:
+            print(f"   [!] Error in is_star_shape: {e}")
             return False
-    
+
     def detect_emoji_from_drawing(self, canvas):
-        """Deteksi emoji dari gambar - IMPROVED"""
+        """Deteksi emoji dari gambar - IMPROVED dengan deteksi star yang lebih baik"""
         try:
             # Convert ke grayscale
             gray = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
@@ -345,7 +339,6 @@ class EmojiDrawer:
             main_contour = max(contours, key=cv2.contourArea)
             area = cv2.contourArea(main_contour)
             
-            # Lower threshold untuk deteksi lebih mudah
             if area < 800:
                 print(f"   [!] Area too small: {area:.0f} (minimum: 800)")
                 return None, None
@@ -358,7 +351,7 @@ class EmojiDrawer:
             circularity = 4 * math.pi * area / (perimeter * perimeter) if perimeter > 0 else 0
             aspect_ratio = float(w) / h if h > 0 else 0
             
-            # Polygon approximation - RELAXED
+            # Polygon approximation - RELAXED untuk star
             epsilon = 0.03 * perimeter
             approx = cv2.approxPolyDP(main_contour, epsilon, True)
             corners = len(approx)
@@ -376,44 +369,45 @@ class EmojiDrawer:
             
             detected = None
             
-            # DETECTION LOGIC - IMPROVED with relaxed criteria
+            # DETECTION LOGIC - IMPROVED with BETTER STAR DETECTION
             
             # 1. CHECK MARK - PRIORITY
             if self.is_check_mark(main_contour, w, h):
                 detected = "check"
                 print(f"   [OK] Detected: CHECK MARK")
             
-            # 2. TRIANGLE - 3-4 corners, low circularity
+            # 2. STAR - IMPROVED DETECTION (check early to avoid confusion with other shapes)
+            elif self.is_star_shape(main_contour, corners, solidity, circularity):
+                detected = "star"
+                print(f"   [OK] Detected: STAR")
+            
+            # 3. TRIANGLE - 3-4 corners, low circularity
             elif 3 <= corners <= 4 and circularity < 0.75 and 0.7 < aspect_ratio < 1.5:
                 detected = "triangle"
                 print(f"   [OK] Detected: TRIANGLE")
             
-            # 3. SQUARE - 4-5 corners, square-like, medium-high solidity
+            # 4. SQUARE - 4-6 corners, square-like, medium-high solidity
             elif 4 <= corners <= 6 and 0.7 < aspect_ratio < 1.3 and solidity > 0.75:
                 detected = "square"
                 print(f"   [OK] Detected: SQUARE")
             
-            # 4. CIRCLE (Smile) - High circularity
+            # 5. CIRCLE (Smile) - High circularity
             elif circularity > 0.70 and 0.75 < aspect_ratio < 1.30:
                 detected = "smile"
                 print(f"   [OK] Detected: SMILE")
             
-            # 5. HEART - Medium circularity, somewhat concave
+            # 6. HEART - Medium circularity, somewhat concave
             elif 0.40 < circularity < 0.75 and 0.70 < aspect_ratio < 1.40 and solidity < 0.88:
-                detected = "heart"
-                print(f"   [OK] Detected: HEART")
-            
-            # 6. STAR - Many corners, low solidity
-            elif 7 <= corners <= 16 and circularity < 0.65 and solidity < 0.75:
-                detected = "star"
-                print(f"   [OK] Detected: STAR")
+                if self.is_heart_shape(main_contour):
+                    detected = "heart"
+                    print(f"   [OK] Detected: HEART")
             
             # 7. THUMBS UP - Very vertical
             elif aspect_ratio < 0.60 and corners >= 6:
                 detected = "thumbs_up"
                 print(f"   [OK] Detected: THUMBS UP")
             
-            else:
+            if detected is None:
                 print(f"   [X] No match found")
             
             return detected, center
@@ -433,12 +427,12 @@ class EmojiDrawer:
             x, y_start = position
             y = y_start + fall_offset
             
-            if y > frame.shape[0] + 150:
+            if y > frame.shape[0] + 200:
                 return
             
             if emoji_key in self.emoji_images:
                 emoji_img = self.emoji_images[emoji_key]
-                emoji_size = 120
+                emoji_size = 180  # Larger for 1920x1080
                 self.overlay_png(frame, emoji_img, x, y, emoji_size, alpha=alpha)
             
         except Exception as e:
@@ -448,20 +442,20 @@ class EmojiDrawer:
         """Draw text with shadow for better readability"""
         x, y = pos
         # Shadow
-        cv2.putText(frame, text, (x+2, y+2), font, scale, (0, 0, 0), thickness+1, cv2.LINE_AA)
+        cv2.putText(frame, text, (x+3, y+3), font, scale, (0, 0, 0), thickness+2, cv2.LINE_AA)
         # Main text
         cv2.putText(frame, text, (x, y), font, scale, color, thickness, cv2.LINE_AA)
     
     def draw_ui(self, frame):
-        """Draw minimal UI - CLEAN VERSION"""
+        """Draw UI for 1920x1080 resolution"""
         try:
             h, w = frame.shape[:2]
             
             # Top-left: Simple status
             status = "DRAWING..." if self.drawing else f"Ready ({len(self.emoji_images)}/{len(EMOJI_PATTERNS)} emojis)"
             color = (0, 255, 255) if self.drawing else (0, 255, 100)
-            self.draw_text_with_shadow(frame, status, (15, 30), 
-                                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+            self.draw_text_with_shadow(frame, status, (25, 50), 
+                                       self.font, 1.0, color, 2)
             
             # Bottom-left: Instructions
             instructions = [
@@ -472,33 +466,33 @@ class EmojiDrawer:
                 "Q = Quit"
             ]
             
-            y_start = h - 120
+            y_start = h - 180
             for i, inst in enumerate(instructions):
-                self.draw_text_with_shadow(frame, inst, (15, y_start + i*22), 
-                                          cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                self.draw_text_with_shadow(frame, inst, (25, y_start + i*35), 
+                                          self.font, 0.7, (255, 255, 255), 1)
             
             # Top-right: Hints (if enabled)
             if self.show_hints:
-                hint_x = w - 260
-                hint_y = 25
+                hint_x = w - 380
+                hint_y = 40
                 
                 self.draw_text_with_shadow(frame, "DRAW THESE:", (hint_x, hint_y), 
-                                          cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 100), 2)
+                                          self.font, 0.8, (0, 255, 100), 2)
                 
-                y_offset = hint_y + 25
+                y_offset = hint_y + 40
                 for emoji_key, emoji_data in EMOJI_PATTERNS.items():
                     hint = f"{emoji_data['hint']} = {emoji_data['name']}"
                     color = (255, 255, 255) if emoji_key in self.emoji_images else (120, 120, 120)
                     self.draw_text_with_shadow(frame, hint, (hint_x, y_offset), 
-                                              cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
-                    y_offset += 22
+                                              self.font, 0.65, color, 1)
+                    y_offset += 35
                     
         except Exception as e:
             print(f"[!] Error in draw_ui: {e}")
 
 def main():
     print("\n" + "=" * 70)
-    print("[*] EMOJI DRAWER - Starting Application")
+    print("[*] EMOJI DRAWER - Starting Application (1920x1080)")
     print("=" * 70)
     
     # Test camera access
@@ -515,9 +509,9 @@ def main():
     
     print("[OK] Camera accessed successfully!")
     
-    # Set camera properties
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    # Set camera properties to 1920x1080
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
     cap.set(cv2.CAP_PROP_FPS, 30)
     
     # Test read one frame
@@ -541,6 +535,12 @@ def main():
         return
     
     print("[OK] Emoji drawer initialized!")
+    
+    # Create window with specific size (windowed fullscreen)
+    window_name = "Emoji Drawer - 1920x1080"
+    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(window_name, 1920, 1080)
+    
     print("\n[*] Starting main loop...")
     print("[*] Pinch fingers to draw, open hand to detect!")
     print("=" * 70 + "\n")
@@ -574,13 +574,13 @@ def main():
                 if results.multi_hand_landmarks:
                     hand_landmarks = results.multi_hand_landmarks[0]
                     
-                    # Draw hand skeleton - minimal
+                    # Draw hand skeleton
                     mp_draw.draw_landmarks(
                         frame, 
                         hand_landmarks, 
                         mp_hands.HAND_CONNECTIONS,
-                        mp_draw.DrawingSpec(color=(0, 255, 100), thickness=2, circle_radius=2),
-                        mp_draw.DrawingSpec(color=(0, 180, 255), thickness=1)
+                        mp_draw.DrawingSpec(color=(0, 255, 100), thickness=3, circle_radius=3),
+                        mp_draw.DrawingSpec(color=(0, 180, 255), thickness=2)
                     )
                     
                     # Get finger tips
@@ -614,9 +614,9 @@ def main():
                         
                         drawer.prev_point = current_point
                         
-                        # Visual feedback - minimal
-                        cv2.circle(frame, current_point, 16, (0, 255, 255), 2, cv2.LINE_AA)
-                        cv2.circle(frame, current_point, 4, (0, 255, 255), -1, cv2.LINE_AA)
+                        # Visual feedback
+                        cv2.circle(frame, current_point, 20, (0, 255, 255), 3, cv2.LINE_AA)
+                        cv2.circle(frame, current_point, 6, (0, 255, 255), -1, cv2.LINE_AA)
                     
                     else:
                         # Selesai drawing
@@ -626,7 +626,7 @@ def main():
                             if emoji:
                                 drawer.detected_emoji = emoji
                                 drawer.emoji_position = position
-                                drawer.show_emoji_frames = 75
+                                drawer.show_emoji_frames = 90
                                 drawer.emoji_alpha = 1.0
                                 print(f"[SUCCESS] Detected: {EMOJI_PATTERNS[emoji]['name']}")
                                 
@@ -644,8 +644,8 @@ def main():
                         drawer.prev_point = None
                         drawer.smoothed_points.clear()
                         
-                        cv2.circle(frame, (index_x, index_y), 8, (255, 100, 100), 2, cv2.LINE_AA)
-                        cv2.circle(frame, (index_x, index_y), 3, (255, 100, 100), -1, cv2.LINE_AA)
+                        cv2.circle(frame, (index_x, index_y), 10, (255, 100, 100), 3, cv2.LINE_AA)
+                        cv2.circle(frame, (index_x, index_y), 4, (255, 100, 100), -1, cv2.LINE_AA)
                 
                 else:
                     drawer.drawing = False
@@ -657,10 +657,10 @@ def main():
                 
                 # Emoji popup animation
                 if drawer.show_emoji_frames > 0:
-                    total_frames = 75
+                    total_frames = 90
                     progress = 1 - (drawer.show_emoji_frames / total_frames)
                     
-                    fall_distance = int(progress * 250)
+                    fall_distance = int(progress * 350)
                     
                     if progress > 0.6:
                         fade_progress = (progress - 0.6) / 0.4
@@ -676,11 +676,11 @@ def main():
                     if drawer.show_emoji_frames == 0:
                         drawer.detected_emoji = None
                 
-                # Draw minimal UI
+                # Draw UI
                 drawer.draw_ui(frame)
                 
                 # Show frame
-                cv2.imshow("Emoji Drawer", frame)
+                cv2.imshow(window_name, frame)
                 
                 # Keyboard input
                 key = cv2.waitKey(1) & 0xFF

@@ -1,249 +1,212 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
+import {
+  Camera,
+  Smile,
+  Brain,
+  Gamepad2,
+  PenTool,
+  Settings,
+  Play,
+  ChevronDown,
+  Sparkles,
+  GraduationCap,
+  Menu,
+  X,
+} from "lucide-react";
+import "./App.css";
 
-const App = () => {
-  const [expression, setExpression] = useState<string | null>(null);
-  const [emoji, setEmoji] = useState<string | null>(null);
-  const [quizResult, setQuizResult] = useState<string | null>(null);
-  const [guessResult, setGuessResult] = useState<string | null>(null);
-  const [editorStatus, setEditorStatus] = useState<string | null>(null);
-
-  const [error, setError] = useState<string | null>(null);
-  const [loadingFace, setLoadingFace] = useState<boolean>(false);
-  const [loadingEmoji, setLoadingEmoji] = useState<boolean>(false);
-  const [loadingQuiz, setLoadingQuiz] = useState<boolean>(false);
-  const [loadingGuess, setLoadingGuess] = useState<boolean>(false);
-  const [loadingEditor, setLoadingEditor] = useState<boolean>(false);
-
+function App() {
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
-  const [selectedCameraIndex, setSelectedCameraIndex] = useState<number>(0);
+  const [selectedCameraIndex, setSelectedCameraIndex] = useState(0);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Ambil daftar kamera
   useEffect(() => {
-    navigator.mediaDevices.enumerateDevices().then(devices => {
-      const videoInputs = devices.filter(d => d.kind === 'videoinput');
-      setCameras(videoInputs);
-
-      if (videoInputs.length === 0) {
-        setError("Tidak ada kamera yang terdeteksi");
-      }
+    navigator.mediaDevices.enumerateDevices().then((devices) => {
+      const videoDevices = devices.filter((d) => d.kind === "videoinput");
+      setCameras(videoDevices);
     });
   }, []);
 
-  // Pastikan index kamera valid
-  useEffect(() => {
-    if (cameras.length > 0 && selectedCameraIndex >= cameras.length) {
-      setSelectedCameraIndex(0);
-    }
-  }, [cameras]);
-
-  // ✅ DETEKSI WAJAH
-  const handleDetectFace = async () => {
-    setLoadingFace(true);
-    setError(null);
-    setExpression(null);
-
-    try {
-      const result = await window.api.detectFace(selectedCameraIndex);
-      const data = JSON.parse(result);
-
-      if (data.error) setError(data.error);
-      else setExpression(data.expression);
-    } catch {
-      setError("Error saat menjalankan deteksi wajah");
-    }
-
-    setLoadingFace(false);
+  const handleCameraChange = (index: number) => {
+    setSelectedCameraIndex(index);
+    setIsDropdownOpen(false);
   };
 
-  // ✅ MODE MENGGAMBAR (EMOJI)
-  const handleDrawEmoji = async () => {
-    setLoadingEmoji(true);
-    setEmoji(null);
-    setError(null);
-
-    try {
-      const result = await window.api.drawEmoji();
-      const data = JSON.parse(result);
-
-      if (data.error) setError(data.error);
-      else setEmoji(data.emoji);
-    } catch {
-      setError("Error saat menjalankan mode menggambar");
-    }
-
-    setLoadingEmoji(false);
-  };
-
-  // ✅ KUIS BAHASA INGGRIS
-  const handleRunQuiz = async () => {
-    setLoadingQuiz(true);
-    setQuizResult(null);
-    setError(null);
-
-    try {
-      const result = await window.api.runQuiz();
-      const data = JSON.parse(result);
-
-      if (data.error) setError(data.error);
-      else setQuizResult(data.question || "Kuis selesai");
-    } catch {
-      setError("Error saat menjalankan kuis");
-    }
-
-    setLoadingQuiz(false);
-  };
-
-  // ✅ GUESS GAME
-  const handleRunGuessGame = async () => {
-    setLoadingGuess(true);
-    setGuessResult(null);
-    setError(null);
-
-    try {
-      const result = await window.api.runGuessGame();
-      const data = JSON.parse(result);
-
-      if (data.error) setError(data.error);
-      else setGuessResult(data.message || "Game selesai");
-    } catch {
-      setError("Error saat menjalankan guess game");
-    }
-
-    setLoadingGuess(false);
-  };
-
-  // ✅ QUIZ EDITOR
-  const handleRunQuizEditor = async () => {
-    setLoadingEditor(true);
-    setEditorStatus(null);
-    setError(null);
-
-    try {
-      const result = await window.api.runQuizEditor();
-      const data = JSON.parse(result);
-
-      if (data.error) setError(data.error);
-      else setEditorStatus(data.status || "Editor selesai");
-    } catch {
-      setError("Error saat membuka quiz editor");
-    }
-
-    setLoadingEditor(false);
-  };
+  const features = [
+    {
+      icon: <Camera size={28} />,
+      title: "Deteksi Emosi",
+      description: "Analisis ekspresi wajah real-time dengan AI",
+      onClick: () => window.api?.detectFace(selectedCameraIndex),
+      color: "purple",
+    },
+    {
+      icon: <Smile size={28} />,
+      title: "Emoji Drawer",
+      description: "Gambar emoji dengan gerakan tangan",
+      onClick: () => window.api?.drawEmoji(),
+      color: "orange",
+    },
+    {
+      icon: <Brain size={28} />,
+      title: "Quiz Game",
+      description: "Uji pengetahuan dengan kuis interaktif",
+      onClick: () => window.api?.runQuiz(),
+      color: "blue",
+    },
+    {
+      icon: <Gamepad2 size={28} />,
+      title: "Guess Game",
+      description: "Tebak gambar dan raih skor tertinggi",
+      onClick: () => window.api?.runGuessGame(),
+      color: "green",
+    },
+    {
+      icon: <PenTool size={28} />,
+      title: "Quiz Editor",
+      description: "Buat dan kelola soal kuis custom",
+      onClick: () => window.api?.runQuizEditor(),
+      color: "pink",
+    },
+    {
+      icon: <Settings size={28} />,
+      title: "Guess Editor",
+      description: "Kelola konten permainan tebak gambar",
+      onClick: () => window.api?.runGuessEditor(),
+      color: "cyan",
+    },
+  ];
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: 500 }}>
-      <h1>E-Learning App</h1>
-      <p>Face Tracking + Gesture Drawing + Emoji Recognition + Quiz + Games</p>
+    <div className="app">
+      {/* Animated Background */}
+      <div className="background">
+        <div className="blob blob-1"></div>
+        <div className="blob blob-2"></div>
+        <div className="blob blob-3"></div>
+      </div>
 
-      {/* ✅ Dropdown kamera */}
-      <label htmlFor="camera-select" style={{ fontWeight: 'bold' }}>
-        Pilih Kamera:
-      </label>
+      {/* Header */}
+      <header className="header">
+        <div className="header-container">
+          <div className="logo">
+            <GraduationCap size={32} />
+            <span>Eureka English Education</span>
+          </div>
 
-      <select
-        id="camera-select"
-        value={selectedCameraIndex}
-        onChange={(e) => setSelectedCameraIndex(Number(e.target.value))}
-        style={{
-          marginBottom: '1rem',
-          display: 'block',
-          padding: '0.4rem',
-          width: '100%',
-        }}
-        disabled={loadingFace || loadingEmoji || loadingQuiz}
-      >
-        {cameras.length > 0 ? (
-          cameras.map((cam, index) => (
-            <option key={index} value={index}>
-              {cam.label || `Kamera ${index}`}
-            </option>
-          ))
-        ) : (
-          <option>Tidak ada kamera</option>
-        )}
-      </select>
+          <button
+            className="mobile-menu-btn"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
 
-      {/* ✅ Tombol deteksi wajah */}
-      <button
-        onClick={handleDetectFace}
-        disabled={loadingFace}
-        style={{ padding: '0.6rem 1rem', marginRight: '1rem' }}
-      >
-        {loadingFace ? "Mendeteksi..." : "Deteksi Wajah"}
-      </button>
+          <nav className={`nav ${isMobileMenuOpen ? "nav-open" : ""}`}>
 
-      {/* ✅ Tombol mode menggambar */}
-      <button
-        onClick={handleDrawEmoji}
-        disabled={loadingEmoji}
-        style={{ padding: '0.6rem 1rem', marginRight: '1rem' }}
-      >
-        {loadingEmoji ? "Menunggu Gambar..." : "Mode Menggambar (Emoji)"}
-      </button>
+          </nav>
+        </div>
+      </header>
 
-      {/* ✅ Tombol kuis */}
-      <button
-        onClick={handleRunQuiz}
-        disabled={loadingQuiz}
-        style={{ padding: '0.6rem 1rem', marginRight: '1rem' }}
-      >
-        {loadingQuiz ? "Menjalankan Kuis..." : "Mulai Kuis Bahasa Inggris"}
-      </button>
+      {/* Main Content */}
+      <main className="main">
+        {/* Hero Section */}
+        <section className="hero">
+          <div className="hero-content">
+            <div className="hero-badge">
+              <Sparkles size={16} />
+              <span>E-Learning Tool</span>
+            </div>
+            <h1 className="hero-title">
+              Belajar Lebih <span className="gradient-text">Interaktif</span>{" "}
+              dengan Teknologi AI
+            </h1>
+            <p className="hero-description">
+              Platform e-learning yang menggunakan Computer Vision dan AI untuk
+              pengalaman belajar yang lebih personal dan menyenangkan.
+            </p>
+          </div>
 
-      {/* ✅ Tombol Guess Game */}
-      <button
-        onClick={handleRunGuessGame}
-        disabled={loadingGuess}
-        style={{ padding: '0.6rem 1rem', marginTop: '1rem' }}
-      >
-        {loadingGuess ? "Menjalankan Game..." : "Guess Game"}
-      </button>
+          {/* Camera Selector Card */}
+          <div className="camera-card">
+            <div className="camera-card-header">
+              <Camera size={20} />
+              <span>Pengaturan Kamera</span>
+            </div>
+            <p className="camera-card-desc">
+              Pilih kamera untuk fitur deteksi emosi
+            </p>
 
-      {/* ✅ Tombol Quiz Editor */}
-      <button
-        onClick={handleRunQuizEditor}
-        disabled={loadingEditor}
-        style={{ padding: '0.6rem 1rem', marginTop: '1rem' }}
-      >
-        {loadingEditor ? "Membuka Editor..." : "Quiz Editor"}
-      </button>
+            <div className="dropdown">
+              <button
+                className="dropdown-btn"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              >
+                <span>
+                  {cameras[selectedCameraIndex]?.label ||
+                    `Camera ${selectedCameraIndex}`}
+                </span>
+                <ChevronDown
+                  size={20}
+                  className={`dropdown-icon ${isDropdownOpen ? "rotate" : ""}`}
+                />
+              </button>
 
-      {/* ✅ Error */}
-      {error && <p style={{ color: 'red', marginTop: '1rem' }}>{error}</p>}
+              {isDropdownOpen && cameras.length > 0 && (
+                <div className="dropdown-menu">
+                  {cameras.map((cam, index) => (
+                    <button
+                      key={index}
+                      className={`dropdown-item ${index === selectedCameraIndex ? "selected" : ""}`}
+                      onClick={() => handleCameraChange(index)}
+                    >
+                      <Camera size={16} />
+                      <span>{cam.label || `Camera ${index}`}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
 
-      {/* ✅ Output */}
-      {expression && !error && (
-        <p style={{ marginTop: '1rem' }}>
-          Ekspresi terdeteksi: <strong>{expression}</strong>
-        </p>
-      )}
+        {/* Features Section */}
+        <section className="features">
+          <div className="features-header">
+            <h2 className="features-title">Fitur Pembelajaran</h2>
+            <p className="features-subtitle">
+              Pilih fitur yang ingin kamu gunakan
+            </p>
+          </div>
 
-      {emoji && !error && (
-        <p style={{ marginTop: '1rem' }}>
-          Emoji terdeteksi: <strong>{emoji}</strong>
-        </p>
-      )}
+          <div className="features-grid">
+            {features.map((feature, index) => (
+              <div
+                key={index}
+                className={`feature-card feature-${feature.color}`}
+                onClick={feature.onClick}
+              >
+                <div className="feature-icon">{feature.icon}</div>
+                <div className="feature-content">
+                  <h3 className="feature-title">{feature.title}</h3>
+                  <p className="feature-description">{feature.description}</p>
+                </div>
+                <button className="feature-btn">
+                  <Play size={18} />
+                  <span>Mulai</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
 
-      {quizResult && !error && (
-        <p style={{ marginTop: '1rem' }}>
-          Soal kuis: <strong>{quizResult}</strong>
-        </p>
-      )}
-
-      {guessResult && !error && (
-        <p style={{ marginTop: '1rem' }}>
-          Hasil Guess Game: <strong>{guessResult}</strong>
-        </p>
-      )}
-
-      {editorStatus && !error && (
-        <p style={{ marginTop: '1rem' }}>
-          Status Editor: <strong>{editorStatus}</strong>
-        </p>
-      )}
+      {/* Footer */}
+      <footer className="footer">
+        <p>© Kelompok 3. Eureka English Education</p>
+      </footer>
     </div>
   );
-};
+}
 
 export default App;

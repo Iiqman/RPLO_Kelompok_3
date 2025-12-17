@@ -100,3 +100,8 @@ ipcMain.handle("run-quiz-editor", async () => {
   const result = await runPython("python/quiz_editor.py");
   return result;
 });
+
+ipcMain.handle("run-guess-editor", async () => {
+  const result = await runPython("python/guess_editor.py");
+  return result;
+});
